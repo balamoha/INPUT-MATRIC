@@ -1,0 +1,135 @@
+#include <iostream>
+#include <vector>
+#include <iomanip>
+
+using namespace std;
+
+const double EPS = 1e-9; // Tolerance for floating-point comparisons
+const int INF = 1e9;     // Represents infinity
+
+int n, m;                // n = number of variables, m = number of constraints
+vector<vector<double>> a; // Simplex tableau
+vector<double> b;        // Right-hand side (RHS) values
+vector<double> c;        // Coefficients of the objective function
+vector<int> basis;       // Indices of basic variables
+
+// Function to perform the pivot operation
+void pivot(int row, int col) {
+    double pivot_val = a[row][col];
+    for (int j = 0; j <= n; j++) {
+        a[row][j] /= pivot_val;
+    }
+    b[row] /= pivot_val;
+
+    for (int i = 0; i < m; i++) {
+        if (i != row && abs(a[i][col]) > EPS) {
+            double alpha = a[i][col];
+            for (int j = 0; j <= n; j++) {
+                a[i][j] -= alpha * a[row][j];
+            }
+            b[i] -= alpha * b[row];
+        }
+    }
+
+    double alpha = c[col];
+    for (int j = 0; j <= n; j++) {
+        c[j] -= alpha * a[row][j];
+    }
+    c[n + row] += alpha;
+
+    basis[row] = col;
+}
+
+// Function to implement the Simplex algorithm
+bool simplex() {
+    while (true) {
+        int col = -1;
+        for (int j = 0; j < n; j++) {
+            if (c[j] > EPS) {
+                col = j;
+                break;
+            }
+        }
+        if (col == -1) return true; // Optimal solution found
+
+        int row = -1;
+        double min_ratio = INF;
+        for (int i = 0; i < m; i++) {
+            if (a[i][col] > EPS) {
+                double ratio = b[i] / a[i][col];
+                if (ratio < min_ratio) {
+                    min_ratio = ratio;
+                    row = i;
+                }
+            }
+        }
+        if (row == -1) return false; // Problem is unbounded
+
+        pivot(row, col);
+    }
+}
+
+// Function to solve the LPP
+double solve() {
+    for (int i = 0; i < m; i++) {
+        basis[i] = n + i; // Initialize basis with slack variables
+    }
+
+    if (!simplex()) {
+        return -INF; // Problem is unbounded
+    }
+
+    return -c[n + m]; // Return the optimal value
+}
+
+// Main function
+int main() {
+    cout << "Enter the number of variables (n): ";
+    cin >> n;
+    cout << "Enter the number of constraints (m): ";
+    cin >> m;
+
+    a.resize(m, vector<double>(n + m + 1, 0));
+    b.resize(m);
+    c.resize(n + m + 1, 0);
+    basis.resize(m);
+
+    cout << "Enter the coefficients of the objective function (c): ";
+    for (int j = 0; j < n; j++) {
+        cin >> c[j];
+    }
+
+    cout << "Enter the coefficients of the constraints (A) and the right-hand side (b):\n";
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            cin >> a[i][j];
+        }
+        cin >> b[i];
+        a[i][n + i] = 1; // Add slack variables
+    }
+
+    double result = solve();
+
+    if (result == -INF) {
+        cout << "The problem is unbounded.\n";
+    } else {
+        cout << "Optimal value: " << fixed << setprecision(6) << result << "\n";
+        cout << "Optimal solution:\n";
+        for (int j = 0; j < n; j++) {
+            cout << "x" << j + 1 << " = ";
+            bool is_basic = false;
+            for (int i = 0; i < m; i++) {
+                if (basis[i] == j) {
+                    cout << fixed << setprecision(6) << b[i] << "\n";
+                    is_basic = true;
+                    break;
+                }
+            }
+            if (!is_basic) {
+                cout << "0.000000\n";
+            }
+        }
+    }
+
+    return 0;
+}
